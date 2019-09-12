@@ -32,7 +32,6 @@ services:
         options:
             max-file: "3"
             max-size: "10m"
-    container_name: micros
     depends_on:
       - odl
       - conductor-server
