@@ -8,10 +8,6 @@ import vpls_worker
 import common_worker
 import vll_service_worker
 
-odl_url_uniconfig_ifc_config = '/frinx-openconfig-interfaces:interfaces/interface/escape($ifc)'
-odl_url_uniconfig_ifc_policy_config = '/frinx-openconfig-network-instance:network-instances/network-instance/default/policy-forwarding/interfaces/interface/escape($ifc)'
-odl_url_uniconfig_ifc_stp_config = '/frinx-stp:stp/interfaces/interface/escape($ifc)'
-
 
 def default_filter_strategy():
     return common_worker.default_filter_strategy('frinx-openconfig-network-instance-types:L2VSI')
@@ -242,12 +238,14 @@ def read_remote_services(task):
     for node in map(lambda n: (n['node-id'], extract_network_instances(n, strategy)), uniconfig_nodes):
 
         node_id = node[0]
-        l2vsis = node[1]
+        l2vsis = node[1][0]
+        default_ni = node[1][1]
+        ifcs = node[1][2]
         if len(l2vsis) is 0:
             continue
 
         for l2vsi in l2vsis:
-            service = Service.parse_from_openconfig_network(node_id, l2vsi)
+            service = Service.parse_from_openconfig_network(node_id, l2vsi, default_ni, ifcs)
             if service is not None:
                 remote_services.append(service)
 
@@ -275,7 +273,9 @@ def aggregate_l2vsi_remote(remote_services, by_key=lambda remote_service: remote
 def extract_network_instances(node, strategy):
     networks = node['frinx-uniconfig-topology:configuration']['frinx-openconfig-network-instance:network-instances']['network-instance']
     l2vsi = filter(strategy, networks)
-    return l2vsi
+    default_ni = filter(lambda ni: ni['name'] == 'default', networks)[0]
+    interfaces = filter(lambda i: i['config']['type'] == 'iana-if-type:ethernetCsmacd', node['frinx-uniconfig-topology:configuration']['frinx-openconfig-interfaces:interfaces']['interface'])
+    return l2vsi, default_ni, interfaces
 
 
 def device_add_to_vpls_commit(task):

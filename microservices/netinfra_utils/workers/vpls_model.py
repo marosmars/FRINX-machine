@@ -1,4 +1,5 @@
 from vll_model import RemoteDevice
+import vll_model
 
 
 class Device(RemoteDevice):
@@ -63,7 +64,7 @@ class Service:
         return serv
 
     @staticmethod
-    def parse_from_openconfig_network(node_id, l2vsi):
+    def parse_from_openconfig_network(node_id, l2vsi, default_ni, ifcs):
         cps = l2vsi.get('connection-points', {}).get('connection-point')
         if cps is None:
             return
@@ -90,6 +91,7 @@ class Service:
                 'untagged': l['endpoints']['endpoint'][0]['local']['config'].get('frinx-brocade-cp-extension:subinterface-untagged', None),
                 'remote_ip': "UNKNOWN"
             }
+            vll_model.Service.set_attributes(default_ni, ifcs, tmp_conn)
             service['devices'].append(tmp_conn)
 
         for r in remote:
