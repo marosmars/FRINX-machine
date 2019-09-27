@@ -88,7 +88,7 @@ def put_interface(service, device):
                     "type": "iana-if-type:ethernetCsmacd",
                     "enabled": True,
                     "name": device.interface,
-                    "description": device.description if device.description else service.id,
+                    "description": "IUP-" + device.description if device.description else "IUP-phys-" + service.id,
                     "frinx-brocade-if-extension:priority": 3,
                     "frinx-brocade-if-extension:priority-force": True
 
@@ -139,7 +139,7 @@ def put_ve_interface(service, device):
                     "type": "iana-if-type:l3ipvlan",
                     "enabled": True,
                     "name": device.ve_interface,
-                    "description": device.description if device.description else service.id,
+                    "description": "IUP-" + service.id,
                 }
             }
         ]
@@ -263,23 +263,9 @@ def service_create_bi(task, commit_type):
     for device in service.devices:
 
         if not dryrun and device.interface_reset:
-            ve_ifc_delete_response = delete_ve_interface(device)
-            if common_worker.task_failed(ve_ifc_delete_response):
-                common_worker.replace_cfg_with_oper([device.id])
-                return common_worker.fail('BI instance: %s configuration in uniconfig FAIL. Device: %s interface %s cannot be reset'
-                                          % (service.id, device.id, device.ve_interface),
-                                          response=ve_ifc_delete_response)
-
-            vlan_delete_response = delete_vlan(device)
-            if common_worker.task_failed(vlan_delete_response):
-                common_worker.replace_cfg_with_oper([device.id])
-                return common_worker.fail('BI instance: %s configuration in uniconfig FAIL. Device: %s vlan %s cannot be reset'
-                                          % (service.id, device.id, device.vlan),
-                                          response=vlan_delete_response)
-
             ifc_delete_response = vll_service_worker.delete_interface(device)
             if common_worker.task_failed(ifc_delete_response):
-                common_worker.replace_cfg_with_oper([device.id])
+                common_worker.replace_cfg_with_oper(service.device_ids())
                 return common_worker.fail('BI instance: %s configuration in uniconfig FAIL. Device: %s interface %s cannot be reset'
                                           % (service.id, device.id, device.interface),
                                           response=ifc_delete_response)
@@ -288,34 +274,34 @@ def service_create_bi(task, commit_type):
 
             # Check response from commit RPC. The RPC always succeeds but the status field needs to be checked
             if common_worker.task_failed(response_commit) or common_worker.uniconfig_task_failed(response_commit):
-                common_worker.replace_cfg_with_oper([device.id])
+                common_worker.replace_cfg_with_oper(service.device_ids())
                 return common_worker.fail('BI commit for device %s reset FAIL' % device.id, response_commit=response_commit)
 
             response_sync_from_net = common_worker.sync_from_net([device.id])
 
             # Check response from commit RPC. The RPC always succeeds but the status field needs to be checked
             if common_worker.task_failed(response_sync_from_net) or common_worker.uniconfig_task_failed(response_sync_from_net):
-                common_worker.replace_cfg_with_oper([device.id])
+                common_worker.replace_cfg_with_oper(service.device_ids())
                 return common_worker.fail('BI sync_from_network after device %s reset FAIL' % device.id,
                                           response_sync_from_net=response_sync_from_net)
 
         vlan_put_response = put_vlan(service, device)
         if common_worker.task_failed(vlan_put_response):
-            common_worker.replace_cfg_with_oper([device.id])
+            common_worker.replace_cfg_with_oper(service.device_ids())
             return common_worker.fail('BI instance: %s configuration in uniconfig FAIL. Device: %s vlan %s cannot be configured'
                                       % (service.id, device.id, device.vlan), response=vlan_put_response)
         vlan_put_responses.append(vlan_put_response)
 
         ifc_put_response = put_interface(service, device)
         if common_worker.task_failed(ifc_put_response):
-            common_worker.replace_cfg_with_oper([device.id])
+            common_worker.replace_cfg_with_oper(service.device_ids())
             return common_worker.fail('BI instance: %s configuration in uniconfig FAIL. Device: %s interface %s cannot be configured'
                                       % (service.id, device.id, device.interface), response=ifc_put_response)
         ifc_put_responses.append(ifc_put_response)
 
         ifc_policy_put_response = vll_service_worker.put_interface_policy(device)
         if ifc_policy_put_response is not None and common_worker.task_failed(ifc_policy_put_response):
-            common_worker.replace_cfg_with_oper([device.id])
+            common_worker.replace_cfg_with_oper(service.device_ids())
             return common_worker.fail('BI instance: %s configuration in uniconfig FAIL. Device: %s interface policies %s cannot be configured'
                                       % (service.id, device.id, device.interface),
                                       response=ifc_policy_put_response)
@@ -325,14 +311,14 @@ def service_create_bi(task, commit_type):
 
         ve_ifc_put_response = put_ve_interface(service, device)
         if common_worker.task_failed(ve_ifc_put_response):
-            common_worker.replace_cfg_with_oper([device.id])
+            common_worker.replace_cfg_with_oper(service.device_ids())
             return common_worker.fail('BI instance: %s configuration in uniconfig FAIL. Device: %s interface %s cannot be configured'
                                       % (service.id, device.id, device.ve_interface), response=ve_ifc_put_response)
         ve_ifc_put_responses.append(ve_ifc_put_response)
 
         isis_put_response = put_isis(device)
         if common_worker.task_failed(isis_put_response):
-            common_worker.replace_cfg_with_oper([device.id])
+            common_worker.replace_cfg_with_oper(service.device_ids())
             return common_worker.fail('BI instance: %s configuration in uniconfig FAIL. Device: %s isis interface %s cannot be configured'
                                       % (service.id, device.id, device.interface), response=isis_put_response)
         isis_put_responses.append(isis_put_response)
@@ -341,6 +327,7 @@ def service_create_bi(task, commit_type):
     # Check response from dryrun RPC. The RPC always succeeds but the status field needs to be checked
     if dryrun:
         response = common_worker.dryrun_commit(device_ids)
+        common_worker.replace_cfg_with_oper(service.device_ids())
         return common_worker.dryrun_response('BI instance: %s dry-run FAIL' % service.id, add_debug_info,
                                              response_interface=ifc_put_responses,
                                              response_ifc_policy=ifc_policy_put_responses,
@@ -371,7 +358,7 @@ def device_delete_bi_instance(task):
             return common_worker.fail('BI interface %s removal in uniconfig FAIL' % device.ve_interface, response=response)
         ve_ifc_responses.append(response)
 
-        response = vll_service_worker.delete_interface(device)
+        response = vll_service_worker.put_minimal_interface(device)
         if common_worker.task_failed(response):
             return common_worker.fail('BI interface %s removal in uniconfig FAIL' % device.interface, response=response)
         ifc_responses.append(response)

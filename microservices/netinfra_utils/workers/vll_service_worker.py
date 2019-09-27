@@ -59,7 +59,6 @@ def put_interface(service, device):
                     "description": device.description if device.description else service.id,
                     "frinx-brocade-if-extension:priority": 3,
                     "frinx-brocade-if-extension:priority-force": True
-
                 }
             }
         ]
@@ -74,6 +73,32 @@ def put_interface(service, device):
 
     if device.tpid is not None:
         ifc_config['frinx-openconfig-interfaces:interface'][0]['config']["frinx-openconfig-vlan:tpid"] = Device.switch_tpid.get(device.tpid)
+
+    ifc_response = uniconfig_worker.write_structured_data({'inputData': {
+        'id': device.id,
+        'uri': url,
+        "template": ifc_config,
+        'params': {}
+    }})
+    ifc_response.update({'ifc_data': ifc_config})
+    return ifc_response
+
+
+# def put_interface(device, interface, description, auto_negotiate=True):
+def put_minimal_interface(device):
+    url = Template(odl_url_uniconfig_ifc_config).substitute({'ifc': device.interface})
+    ifc_config = {
+        "frinx-openconfig-interfaces:interface": [
+            {
+                "name": device.interface,
+                "config": {
+                    "type": "iana-if-type:ethernetCsmacd",
+                    "enabled": True,
+                    "name": device.interface
+                }
+            }
+        ]
+    }
 
     ifc_response = uniconfig_worker.write_structured_data({'inputData': {
         'id': device.id,
