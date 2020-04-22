@@ -92,8 +92,11 @@ services:
       dockerfile: docker/server/Dockerfile
     environment:
       - CONFIG_PROP=config.properties
+      - LOG4J_PROP=log4j-file-appender.properties
     image: frinx/fm-conductor-server:${RELEASE_VERSION}
     container_name: conductor-server
+    volumes:
+      - conductor_server_logs:/app/logs
     logging:
         driver: "json-file"
         options:
@@ -212,6 +215,7 @@ services:
     container_name: logstash
     volumes:
        - uniconfig_logs:/uniconfig-logs:ro
+       - conductor_server_logs:/conductor-server-logs:ro
     network_mode: "host"
     extra_hosts: *extra_hosts_entries
 
@@ -259,6 +263,8 @@ volumes:
     name: redis_data
   elastic_data:
     name: elastic_data
+  conductor_server_logs:
+    name: conductor_server_logs
   uniconfig_logs:
     name: uniconfig_logs
   uniconfig_pass:

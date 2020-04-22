@@ -4,6 +4,7 @@ RUN rm -f /usr/share/logstash/pipeline/logstash.conf
 
 COPY conf/odl /usr/share/logstash/config/patterns/
 COPY conf/log_readers/logstash.conf /usr/share/logstash/pipeline
+COPY conf/log_readers/logstash_metrics.conf /usr/share/logstash/pipeline
 COPY conf/pipeline.yml /usr/share/logstash/config/pipeline.yml
 
 

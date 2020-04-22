@@ -1,3 +1,6 @@
 - pipeline.id: odl_logs
   path.config: "/usr/share/logstash/pipeline/logstash.conf"
   pipeline.workers: 2
+- pipeline.id: conductor_metrics
+  path.config: "/usr/share/logstash/pipeline/logstash_metrics.conf"
+  pipeline.workers: 2
